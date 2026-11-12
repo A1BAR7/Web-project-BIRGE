@@ -1,0 +1,7 @@
+__pycache__/
+.pytest_cache/
+.dev-deps/
+uploads/lost_items/*
+!uploads/lost_items/.gitkeep
+.qa/
+.venv/

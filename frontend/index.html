@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#f6f7f4" />
+  <meta name="description" content="BIRGE — SDU кампус қауымдастығы: Däm, Lost &amp; Found, SkillQos, Ishimде." />
+  <link rel="icon" type="image/jpeg" href="/static/images/logo.jpg" />
+  <title>BIRGE — SDU кампус қауымдастығы</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <a class="skip-link" href="#mainContent">Мазмұнға өту</a>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="#" data-go="home" aria-label="BIRGE — басты бет"><img class="brand-logo" src="/static/images/logo.jpg" width="40" height="40" alt="" /><span>BIRGE</span></a>
+      <div class="campus-label">SDU студенттеріне</div>
+      <nav class="nav-menu" aria-label="Негізгі навигация">
+        <button class="nav-link active" data-page="home" aria-current="page"><span data-icon="house"></span><span>Басты бет</span></button>
+        <button class="nav-link" data-page="food"><span data-icon="utensils"></span><span>Däm</span><span class="nav-count" id="foodCount">10</span></button>
+        <button class="nav-link" data-page="lost"><span data-icon="search"></span><span>Lost & Found</span></button>
+        <button class="nav-link" data-page="skills"><span data-icon="repeat-2"></span><span>SkillQos</span></button>
+        <button class="nav-link" data-page="confess"><span data-icon="message-circle"></span><span>Ishimде</span></button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="sidebar-card"><strong>Бірге болған жақсы</strong><p>Бір кампус. Ортақ мүмкіндіктер.</p></div>
+        <button class="profile-mini" id="profileButton"><span class="avatar">B</span><span><b>Қонақ студент</b><small>SDU University</small></span><span data-icon="chevron-down"></span></button>
+      </div>
+    </aside>
+    <button class="nav-scrim" id="navScrim" aria-label="Мәзірді жабу" hidden></button>
+    <main class="main-content" id="mainContent" tabindex="-1">
+      <header class="topbar">
+        <div class="mobile-header"><button class="icon-button" id="mobileMenu" aria-label="Мәзір" aria-controls="sidebar" aria-expanded="false"><span data-icon="menu"></span></button></div>
+        <a class="header-brand" href="#" data-go="home" aria-label="BIRGE — басты бет"><img class="brand-logo" src="/static/images/logo.jpg" width="40" height="40" alt="" /><span>BIRGE</span></a>
+        <div class="breadcrumb"><span>SDU University</span><span class="crumb-dot" aria-hidden="true">/</span><b id="crumbCurrent">Басты бет</b></div>
+        <div class="top-actions">
+          <button class="icon-button" id="themeToggle" aria-label="Тақырыпты ауыстыру" title="Тақырыпты ауыстыру"><span data-icon="sun"></span></button>
+          <button class="notification-button" id="notificationButton" aria-label="Хабарламалар" title="Хабарламалар"><span data-icon="bell"></span></button>
+          <button class="primary-button small" id="quickAdd"><span data-icon="plus"></span><span>Жариялау</span></button>
+        </div>
+      </header>
+
+      <section class="page active" id="page-home" aria-label="Басты бет">
+        <div class="hero">
+          <div class="hero-copy"><div class="eyebrow"><span class="together-mark" aria-hidden="true"></span>SDU кампус қауымдастығы</div><h1>Күнделікті кампус өмірі — бірге</h1><p>Асхана мәзірін қара, жоғалған затыңды тап, білгеніңмен бөліс.</p><button class="hero-button" data-go="food">Асхана мәзірін көру <span data-icon="arrow-right"></span></button><span class="hero-caption">Däm · Lost & Found · SkillQos · Ishimде</span></div>
+          <div class="campus-board"><div class="board-heading"><span>Кампус мәзірі</span><span>Däm</span></div><div id="heroMenu" aria-live="polite"><p class="board-loading">Мәзір жүктелуде…</p></div></div>
+        </div>
+        <div class="welcome-row"><div><div class="section-kicker">Кампус сервистері</div><h2>Бүгін не істейміз?</h2></div><span class="date-chip" id="todayDate">SDU Campus</span></div>
+        <div class="feature-grid">
+          <article class="feature-card food-feature" data-go="food"><div class="feature-top"><span class="feature-icon" data-icon="utensils"></span><span class="feature-number">01</span></div><div><h3>Däm</h3><p>Асхананы таңда, мәзір мен бағаларды салыстыр.</p></div><span class="feature-link">Мәзірді көру <span data-icon="arrow-up-right"></span></span></article>
+          <article class="feature-card lost-feature" data-go="lost"><div class="feature-top"><span class="feature-icon" data-icon="search"></span><span class="feature-number">02</span></div><div><h3>Lost & Found</h3><p>Жоғалған затты ізде немесе табылғанын жарияла.</p></div><span class="feature-link">Хабарландырулар <span data-icon="arrow-up-right"></span></span></article>
+          <article class="feature-card skill-feature" data-go="skills"><div class="feature-top"><span class="feature-icon" data-icon="repeat-2"></span><span class="feature-number">03</span></div><div><h3>SkillQos</h3><p>Дағды ұсын, үйренуге серіктес тап.</p></div><span class="feature-link">Ұсыныстарды көру <span data-icon="arrow-up-right"></span></span></article>
+          <article class="feature-card confess-feature" data-go="confess"><div class="feature-top"><span class="feature-icon" data-icon="message-circle"></span><span class="feature-number">04</span></div><div><h3>Ishimде</h3><p>Ойыңды анонимді бөліс, өзгелерге қолдау білдір.</p></div><span class="feature-link">Жазбаларды оқу <span data-icon="arrow-up-right"></span></span></article>
+        </div>
+        <div class="bottom-grid">
+          <section class="content-panel"><div class="panel-heading"><div><div class="section-kicker">Студенттерден</div><h2>Қауымдастықта</h2></div><button class="text-button" data-go="confess">Барлық жазба <span data-icon="arrow-up-right"></span></button></div><div id="homeFeed" class="mini-feed"></div></section>
+          <section class="content-panel side-panel"><div class="section-kicker">BIRGE қауымдастығы</div><h2>Біздің орта</h2><div class="stats-row"><div><b id="postStat">0</b><span>Жарияланым</span></div><div><b>4</b><span>Қауымдастық</span></div><div><b>∞</b><span>Мүмкіндік</span></div></div><div class="quote-box">“Alone we can do so little; together we can do so much.”<small>— Helen Keller</small></div></section>
+        </div>
+      </section>
+
+      <section class="page" id="page-food" aria-label="Däm">
+        <div class="page-heading"><div><div class="section-kicker">Däm</div><h1>Кампус мәзірі</h1><p>Асхана, тағам және баға — бір жерде.</p></div></div>
+        <div class="toolbar food-toolbar"><div class="search-wrap"><span data-icon="search"></span><input id="foodSearch" aria-label="Тағам атауын іздеу" placeholder="Тағам іздеу" /></div><label>Асхана<select id="foodCanteen"><option value="">Барлығы</option></select></label><label>Санат<select id="foodCategory"><option value="">Барлығы</option></select></label><label>Сұрыптау<select id="foodSort"><option value="">Мәзір реті</option><option value="asc">Арзаннан қымбатқа</option><option value="desc">Қымбаттан арзанға</option></select></label><button class="text-button" id="clearFoodFilters">Тазарту</button></div>
+        <div class="food-grid" id="foodGrid" aria-live="polite"></div>
+        <p class="demo-note">Бағалар ₸. Жобаға берілген фотолар файл атаулары бойынша сәйкестендірілген. Фотодағы құрам мен баға мәзірден өзгеше болуы мүмкін; карточкадағы ақпаратты басшылыққа алыңыз. <a href="/static/images/food/ATTRIBUTION.md" target="_blank" rel="noopener">Фото дереккөздері</a></p>
+      </section>
+
+      <section class="page" id="page-lost" aria-label="Lost & Found">
+        <div class="page-heading"><div><div class="section-kicker">Lost & Found</div><h1>Жоғалған және табылған заттар</h1><p>Іздеп жүрген затыңды тап немесе біреуге қайтаруға көмектес.</p></div></div>
+        <div class="toolbar"><div class="search-wrap"><span data-icon="search"></span><input id="lostSearch" aria-label="Зат іздеу" placeholder="Зат іздеу" /></div><button class="primary-button" id="addLost"><span data-icon="plus"></span>Зат жариялау</button></div>
+        <div class="segmented" id="lostFilters" aria-label="Хабарландыру түрі"><button class="active" data-filter="all" aria-pressed="true">Барлығы</button><button data-filter="lost" aria-pressed="false">Жоғалған</button><button data-filter="found" aria-pressed="false">Табылған</button></div><div class="listing-grid" id="lostGrid"></div>
+      </section>
+
+      <section class="page" id="page-skills" aria-label="SkillQos">
+        <div class="page-heading"><div><div class="section-kicker">SkillQos</div><h1>Біліммен бөліс, бірге үйрен</h1><p>Сен білетін нәрсе — біреуге жаңа мүмкіндік.</p></div></div>
+        <div class="skill-banner"><div><b>Бір сағат үйрет. Бір сағат үйрен.</b><p>Дағдылар алмасу арқылы жаңа адамдармен таныс.</p></div><button class="light-button" id="addSkill"><span data-icon="plus"></span>Ұсыныс қосу</button></div>
+        <div class="toolbar"><div class="search-wrap"><span data-icon="search"></span><input id="skillSearch" aria-label="Дағды іздеу" placeholder="Дағды немесе студент іздеу" /></div><div class="filter-pills" id="skillFilters" aria-label="Ұсыныс түрі"><button class="filter active" data-filter="all" aria-pressed="true">Барлығы</button><button class="filter" data-filter="teach" aria-pressed="false">Үйретемін</button><button class="filter" data-filter="learn" aria-pressed="false">Үйренемін</button></div></div><div class="skill-grid" id="skillGrid"></div>
+      </section>
+
+      <section class="page" id="page-confess" aria-label="Ishimде">
+        <div class="page-heading"><div><div class="section-kicker">Ishimде</div><h1>Айтарыңды айт</h1><p>Ойыңды бөліс. Бұл жерде сенің атың көрінбейді.</p></div></div>
+        <div class="confess-compose"><div class="anonymous-avatar" data-icon="message-circle"></div><div class="compose-content"><label for="confessInput">Анонимді жазба</label><p>Құрмет пен қауіпсіздік — бәрінен маңызды.</p><textarea id="confessInput" maxlength="280" placeholder="Ойыңда не бар?"></textarea><div class="compose-footer"><span id="charCount">0 / 280</span><button class="primary-button" id="publishConfess">Жариялау <span data-icon="arrow-right"></span></button></div></div></div>
+        <div class="feed-heading"><h2>Студенттер не дейді?</h2><span class="date-chip">Анонимді жазбалар</span></div><div class="confess-feed" id="confessFeed"></div><p class="demo-note">Анонимділік автордың атын көрсетпеуді білдіреді. Қорлау, жеке дерек және зиянды контент жарияламаңыз.</p>
+      </section>
+      <footer class="footer"><span>© 2026 BIRGE</span><span>Студенттерге, студенттермен бірге</span></footer>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="modalBackdrop"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-describedby="modalDescription"><button class="modal-close" id="modalClose" aria-label="Жабу"><span data-icon="x"></span></button><div class="section-kicker">BIRGE қауымдастығы</div><h2 id="modalTitle">Жарияланым қосу</h2><p id="modalDescription">Ақпаратпен бөлісіңіз.</p><form id="modalForm"><div id="modalFields"></div><p id="modalError" class="form-error" role="alert"></p><button class="primary-button full" type="submit">Жариялау</button></form></div></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <dialog id="detailDialog" aria-labelledby="detailTitle"><button type="button" class="modal-close" id="closeDetail" aria-label="Жабу"><span data-icon="x"></span></button><div id="detailContent"></div></dialog>
+  <dialog id="imageDialog" aria-label="Үлкейтілген фото"><button type="button" class="modal-close" id="closeImage" aria-label="Жабу"><span data-icon="x"></span></button><img id="enlargedImage" alt="" /></dialog>
+  <dialog id="actionDialog" aria-labelledby="actionTitle"><form id="actionForm"><button type="button" class="modal-close" id="closeAction" aria-label="Жабу"><span data-icon="x"></span></button><div class="section-kicker">BIRGE</div><h2 id="actionTitle"></h2><div id="actionFields"></div><div id="actionButtons" class="dialog-actions"></div></form></dialog>
+  <script src="./icons.js"></script>
+  <script src="./ui.js"></script>
+  <script src="./script.js"></script>
+</body>
+</html>

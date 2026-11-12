@@ -1,0 +1,114 @@
+{
+  "pizza-pepperoni.webp": {
+    "kind": "representative",
+    "credit": "Jon Sullivan / PDPhoto.org — public domain (CC0)",
+    "alt": "Representative homemade pepperoni pizza; not a canteen photograph",
+    "source": "https://commons.wikimedia.org/wiki/File:Pepperoni_pizza.jpg",
+    "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "changes": "Resized to at most 960 × 720; converted to WebP"
+  },
+  "pizza-margherita.webp": {
+    "kind": "representative",
+    "credit": "RanZag — public domain",
+    "alt": "Representative Margherita pizza; not a canteen photograph",
+    "source": "https://commons.wikimedia.org/wiki/File:Pizza_margherita.png",
+    "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "changes": "Resized to at most 960 × 720; converted to WebP"
+  },
+  "hot-dog.webp": {
+    "kind": "representative",
+    "credit": "tednmiki — CC BY-SA 3.0",
+    "alt": "Representative hot dog with ketchup and mayonnaise; not a canteen photograph",
+    "source": "https://commons.wikimedia.org/wiki/File:Hot_dog.jpg",
+    "license": "https://creativecommons.org/licenses/by-sa/3.0/",
+    "changes": "Resized to at most 960 × 720; converted to WebP"
+  },
+  "kapsalon.webp": {
+    "kind": "representative",
+    "credit": "Incase design; white balance by Takeaway — CC BY 2.0",
+    "alt": "Representative kapsalon with fries, meat and salad; not a canteen photograph",
+    "source": "https://commons.wikimedia.org/wiki/File:Kapsalon.jpg",
+    "license": "https://creativecommons.org/licenses/by/2.0/",
+    "changes": "Resized to at most 960 × 720; converted to WebP"
+  },
+  "doner-combo-three.jpg": {
+    "kind": "authentic",
+    "alt": "Супер комбо 3",
+    "credit": "Жобаға берілген фото",
+    "source": "Photo/супер комбо3.jpg",
+    "license": "User-provided asset; no public license asserted",
+    "changes": "Original file copied unchanged; displayed with CSS cropping"
+  },
+  "doner-combo-two.jpg": {
+    "kind": "authentic",
+    "alt": "Комбо 2",
+    "credit": "Жобаға берілген фото",
+    "source": "Photo/комбо2.jpg",
+    "license": "User-provided asset; no public license asserted",
+    "changes": "Original file copied unchanged; displayed with CSS cropping"
+  },
+  "pizza-margherita.jpg": {
+    "kind": "authentic",
+    "alt": "Пицца Маргарита",
+    "credit": "Жобаға берілген фото",
+    "source": "Photo/маргарита.jpg",
+    "license": "User-provided asset; no public license asserted",
+    "changes": "Original file copied unchanged; displayed with CSS cropping"
+  },
+  "pizza-pepperoni.jpg": {
+    "kind": "authentic",
+    "alt": "Пицца Пепперони",
+    "credit": "Жобаға берілген фото",
+    "source": "Photo/пепперони.jpg",
+    "license": "User-provided asset; no public license asserted",
+    "changes": "Original file copied unchanged; displayed with CSS cropping"
+  },
+  "chicken-pide.jpg": {
+    "kind": "authentic",
+    "alt": "Пиде тауық етімен",
+    "credit": "Жобаға берілген фото",
+    "source": "Photo/пиде.jpg",
+    "license": "User-provided asset; no public license asserted",
+    "changes": "Original file copied unchanged; displayed with CSS cropping"
+  },
+  "hot-dog.jpg": {
+    "kind": "authentic",
+    "alt": "Хот-дог",
+    "credit": "Жобаға берілген фото",
+    "source": "Photo/хот-дог.jpg",
+    "license": "User-provided asset; no public license asserted",
+    "changes": "Original file copied unchanged; displayed with CSS cropping"
+  },
+  "kapsalon.jpg": {
+    "kind": "authentic",
+    "alt": "Капсалон",
+    "credit": "Жобаға берілген фото",
+    "source": "Photo/капсолон.jpg",
+    "license": "User-provided asset; no public license asserted",
+    "changes": "Original file copied unchanged; displayed with CSS cropping"
+  },
+  "guyru-lagman.jpg": {
+    "kind": "authentic",
+    "alt": "Гуйру лағман",
+    "credit": "Жобаға берілген фото",
+    "source": "Photo/гуйру.jpg",
+    "license": "User-provided asset; no public license asserted",
+    "changes": "Original file copied unchanged; displayed with CSS cropping"
+  },
+  "suyru-lagman.jpg": {
+    "kind": "authentic",
+    "alt": "Суйру лағман",
+    "credit": "Жобаға берілген фото",
+    "source": "Photo/Суйру.jpg",
+    "license": "User-provided asset; no public license asserted",
+    "changes": "Original file copied unchanged; displayed with CSS cropping"
+  },
+  "sdu-sushi-pizza-combo.jpg": {
+    "kind": "authentic",
+    "alt": "Сет SDU",
+    "credit": "Жобаға берілген фото",
+    "source": "Photo/сет SDU.jpg",
+    "license": "User-provided asset; no public license asserted",
+    "changes": "Original file copied unchanged; displayed with CSS cropping"
+  }
+}
