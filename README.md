@@ -1,20 +1,45 @@
 # BIRGE — SDU student community
 
 HTML/CSS/JavaScript frontend with a FastAPI backend. Lost & Found, Däm,
-SkillQos and Ishimде share the in-memory API visible in Swagger. No database
-or frontend build step is required. Source files use UTF-8.
+SkillQos and Ishimде use PostgreSQL through SQLAlchemy. The API is available
+in Swagger, and the frontend requires no build step. Source files use UTF-8.
 
 ## Installation and startup
 
-Use Python 3.10+ (validated here with Python 3.12). From the project directory:
+Use Python 3.10+ and a running PostgreSQL server. In `psql`, connect as a
+PostgreSQL administrator and create a local role and database:
+
+```sql
+CREATE ROLE birge LOGIN;
+\password birge
+CREATE DATABASE birge OWNER birge;
+```
+
+From the project directory:
 
 ```powershell
 python -m venv .venv
 .venv\Scripts\python -m pip install -r requirements.txt
+Copy-Item .env.example .env
+```
+
+Set `DATABASE_URL` in `.env` to
+`postgresql+psycopg://birge:<password>@localhost:5432/birge`. URL-encode
+reserved characters in the password. A `DATABASE_URL` set in the environment
+takes precedence over `.env`.
+
+```powershell
+.venv\Scripts\python -m alembic upgrade head
+.venv\Scripts\python -m uvicorn app.main:app --reload
 .venv\Scripts\python -m uvicorn app.main:app --reload
 ```
 
 On macOS/Linux use `.venv/bin/python` instead of `.venv\Scripts\python`.
+Use `cp .env.example .env` to create the local environment file.
+
+Run `alembic upgrade head` after pulling schema changes. The initial migration
+creates all tables and inserts the ten original menu items with their existing
+IDs and photo credits. Subsequent edits and deletions persist across restarts.
 
 - Website: http://127.0.0.1:8000/app/
 - Swagger UI: http://127.0.0.1:8000/docs
@@ -27,7 +52,8 @@ does not download assets. Swagger retains its standard CDN-based UI.
 ## Lost & Found
 
 Existing JSON CRUD and resolve endpoints at `/lost-items` are preserved.
-Responses now include `images: [{id, url}]`; legacy records return an empty list.
+Responses include `images: [{id, url}]`. Announcements without photos return an
+empty list.
 
 - `POST /lost-items/{item_id}/images?actor_id=101`: multipart form with repeated
   `files` fields; returns the updated announcement with **201**.
@@ -81,7 +107,7 @@ assets/provenance when additional dishes are supplied. Frontend cards fetch
 from `/food`, with API search/filtering, local price sorting, availability,
 details, loading skeletons, empty/error/retry states and clear filters.
 
-## Existing workflows and storage limits
+## Existing workflows and storage
 
 SkillQos retains creation, filtering, applications and owner accept/reject.
 Ishimде retains anonymous posts and like/unlike. Create a skill with owner 202
@@ -92,11 +118,17 @@ The frontend uses **demo actor 101**. Actor/owner IDs preserve the existing
 ownership model; they are not secure authentication. Food management is also
 unauthenticated; an admin/login system was outside the requested scope.
 
-Run a single worker: records are process-local and reset on restart. Uploaded
-files persist on disk across restarts, but announcement associations do not.
-After stopping the server, obsolete generated files in `uploads/lost_items/`
-may be removed manually. Failed operations clean up their own new files. Do not
-use multiple workers with this in-memory architecture.
+PostgreSQL persists announcements, image metadata, skills, applications,
+confessions, likes and menu items. Announcements own images, skills own
+applications, and confessions own likes. Foreign keys cascade row deletion,
+and database constraints enforce one pending application per applicant per skill
+and one like per user per confession. Actor IDs remain numeric demo identifiers.
+
+Back up the database and `uploads/lost_items/` together. Workers serving the same
+database must share that upload directory. Upload files and database metadata
+use separate storage, so an interruption during a file operation can require
+reconciliation. Assignment 5 kept announcements in memory, so there are no
+stored announcement rows to import from that version.
 
 ## Typography and images
 
@@ -141,23 +173,16 @@ Do not run `scripts/fetch_assets.py` to replace this supplied-photo manifest.
 .venv\Scripts\python scripts/verify_assets.py
 ```
 
-Executed here: **44 tests passed**, offline asset/font verification, and a
-JavaScript syntax check. Tests cover food CRUD/filtering, exact seed data and
-assets, upload format/content/count/size/ownership, failed-write rollback,
-deletion cleanup, static image serving, legacy records, Swagger/OpenAPI,
-frontend asset delivery, and the original SkillQos/Ishimде workflows. Upload
-tests use temporary directories. The installed Starlette/httpx combination
-emits one deprecation warning.
-
-Browser interaction/mobile visual checks could not be completed: the browser
-connector was unavailable, and Windows Computer Use stopped because it could
-not confidently determine the current browser URL. Rendering and browser
-interactions are therefore not claimed as tested.
+By default, tests run Alembic against temporary SQLite files with foreign keys
+enabled. To run the same API suite against PostgreSQL, set `TEST_DATABASE_URL`
+to a dedicated test database using the same URL format as `DATABASE_URL`.
+The test role needs permission to create schemas. Tests create and drop a
+temporary schema per test and use temporary directories for uploads.
 
 ### Test the frontend manually
 
 1. Open `/app/`, select Däm, and confirm ten cards with the correct menu,
-   prices/canteens, four representative photos and six labeled placeholders.
+   prices, canteens and corresponding supplied photos.
 2. Combine canteen/category/search, sort both ways, clear filters, and inspect
    details. Search for an unmatched word to see the empty state. Stop the API,
    reload, then restart and use Retry to check the error state.
@@ -180,17 +205,3 @@ interactions are therefore not claimed as tested.
    Use actor 202 for 403. Delete images and the announcement as owner 101.
 3. Verify `/skills` and `/confessions` still work. Check `/openapi.json` includes
    the food schemas and multipart upload operation.
-
-## Changed and added files
-
-- Updated backend: `app/main.py`, `app/store.py`, `app/schemas.py`, `app/routers/lost.py`.
-- New backend: `app/menu.py`, `app/food_schemas.py`, `app/routers/food.py`,
-  `app/services/food.py`, `app/services/lost_images.py`.
-- Updated frontend: `frontend/index.html`, `frontend/script.js`, `frontend/style.css`.
-- New assets: `static/fonts/NotoSans-Variable.ttf`, `static/fonts/OFL.txt`,
-  `static/images/food/` (four WebP photos, ten named SVG fallbacks, generic
-  `placeholder.svg`, `credits.json`, `ATTRIBUTION.md`), `uploads/lost_items/.gitkeep`.
-- New tests/tooling: `test_features.py`, `scripts/fetch_assets.py`,
-  `scripts/create_placeholders.py`, `scripts/verify_assets.py`,
-  `requirements-dev.txt`, `.gitignore`.
-- Updated: `requirements.txt`, `README.md`. Original `test_api.py` is unchanged.

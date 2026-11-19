@@ -1,28 +1,36 @@
 from fastapi import HTTPException
-from app.store import store
+from sqlalchemy import select
 
-def get_or_404(collection, item_id):
-    if item_id not in collection:
+from app.schemas import MAX_IDENTIFIER
+
+
+def get_or_404(db, model, item_id, *, lock=False):
+    # Oversized path IDs cannot match a signed BIGINT primary key.
+    item = db.get(model, item_id, with_for_update=lock) if 0 < item_id <= MAX_IDENTIFIER else None
+    if item is None:
         raise HTTPException(404, 'Resource not found')
-    return collection[item_id]
+    return item
 
-def create(collection, data):
-    obj = {'id': store.new_id(), **data.model_dump()}
-    collection[obj['id']] = obj
-    return obj
 
-def update(collection, item_id, data):
-    obj = get_or_404(collection, item_id)
-    changes = data.model_dump(exclude_unset=True)
-    if any(v is None for v in changes.values()):
+def list_records(db, model, *filters):
+    return list(db.scalars(select(model).where(*filters).order_by(model.id)))
+
+
+def create(db, model, body, **fields):
+    item = model(**body.model_dump(), **fields)
+    db.add(item)
+    db.commit()
+    return item
+
+
+def apply_update(item, body):
+    changes = body.model_dump(exclude_unset=True)
+    if any(value is None for value in changes.values()):
         raise HTTPException(422, 'Fields cannot be null')
-    obj.update(changes)
-    return obj
+    for key, value in changes.items():
+        setattr(item, key, value)
 
-def delete(collection, item_id):
-    get_or_404(collection, item_id)
-    del collection[item_id]
 
-def owner_only(obj, actor_id):
-    if obj['owner_id'] != actor_id:
+def owner_only(item, actor_id):
+    if item.owner_id != actor_id:
         raise HTTPException(403, 'Only the owner may perform this operation')

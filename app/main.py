@@ -1,7 +1,9 @@
 from pathlib import Path
 from fastapi.staticfiles import StaticFiles
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy.exc import DataError, IntegrityError, OperationalError, SQLAlchemyError
 from app.routers import lost, skills, confessions, food
 from app.services.lost_images import UPLOAD_DIR
 
@@ -11,6 +13,16 @@ app.include_router(lost.router)
 app.include_router(skills.router)
 app.include_router(confessions.router)
 app.include_router(food.router)
+
+@app.exception_handler(SQLAlchemyError)
+async def handle_database_error(_request: Request, error: SQLAlchemyError):
+    if isinstance(error, IntegrityError):
+        return JSONResponse(status_code=409, content={'detail': 'Data conflicts with existing records or constraints'})
+    if isinstance(error, DataError):
+        return JSONResponse(status_code=422, content={'detail': 'Value cannot be stored'})
+    if isinstance(error, OperationalError):
+        return JSONResponse(status_code=503, content={'detail': 'Database unavailable; please retry'})
+    return JSONResponse(status_code=500, content={'detail': 'Unable to complete the database operation'})
 
 @app.get('/')
 def home():

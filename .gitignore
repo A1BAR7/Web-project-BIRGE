@@ -5,3 +5,6 @@ uploads/lost_items/*
 !uploads/lost_items/.gitkeep
 .qa/
 .venv/
+.env
+.env.*
+!.env.example

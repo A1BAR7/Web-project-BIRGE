@@ -1,9 +1,8 @@
 """Däm validation, filtering and record management; assets are shared/read-only."""
-from datetime import datetime, timezone
 from pathlib import Path
 from fastapi import HTTPException
-from app.store import store
-from app.services.core import get_or_404
+from app.models import FoodItem
+from app.services.core import apply_update, create, get_or_404, list_records
 
 FOOD_IMAGES = Path(__file__).resolve().parents[2] / 'static/images/food'
 
@@ -31,30 +30,28 @@ def image_metadata(url, name):
             'image_credit': info.get('credit', ''), 'image_source': info.get('source', '')}
 
 
-def list_food(canteen=None, category=None, search=None, min_price=None, max_price=None):
+def list_food(db, canteen, category, search, min_price, max_price):
     if min_price is not None and max_price is not None and min_price > max_price:
         raise HTTPException(422, 'min_price must not exceed max_price')
-    return [item for item in store.food.values()
-            if (canteen is None or item['canteen'].casefold() == canteen.casefold())
-            and (category is None or item['category'].casefold() == category.casefold())
-            and (not search or search.casefold() in item['name'].casefold())
-            and (min_price is None or item['price'] >= min_price)
-            and (max_price is None or item['price'] <= max_price)]
+    filters = []
+    if min_price is not None:
+        filters.append(FoodItem.price >= min_price)
+    if max_price is not None:
+        filters.append(FoodItem.price <= max_price)
+    return [item for item in list_records(db, FoodItem, *filters)
+            if (canteen is None or item.canteen.casefold() == canteen.casefold())
+            and (category is None or item.category.casefold() == category.casefold())
+            and (not search or search.casefold() in item.name.casefold())]
 
 
-def create_food(body):
-    data = body.model_dump()
-    item = {'id': next(store.food_ids), **data, 'created_at': datetime.now(timezone.utc),
-            **image_metadata(data['image_url'], data['name'])}
-    store.food[item['id']] = item
-    return item
+def create_food(db, body):
+    return create(db, FoodItem, body, **image_metadata(body.image_url, body.name))
 
 
-def update_food(food_id, body):
-    item = get_or_404(store.food, food_id)
-    changes = body.model_dump(exclude_unset=True)
-    if any(value is None for value in changes.values()):
-        raise HTTPException(422, 'Fields cannot be null')
-    item.update(changes)
-    item.update(image_metadata(item['image_url'], item['name']))
+def update_food(db, food_id, body):
+    item = get_or_404(db, FoodItem, food_id, lock=True)
+    apply_update(item, body)
+    for field, value in image_metadata(item.image_url, item.name).items():
+        setattr(item, field, value)
+    db.commit()
     return item

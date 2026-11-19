@@ -6,17 +6,17 @@ from fastapi.testclient import TestClient
 from PIL import Image
 from app.main import app
 from app.menu import MENU
-from app.store import store
 from app.services import lost_images
 
 client = TestClient(app)
 
 
 @pytest.fixture(autouse=True)
-def isolated_store(tmp_path, monkeypatch):
-    store.__init__()
-    monkeypatch.setattr(lost_images, 'UPLOAD_DIR', tmp_path)
-    yield tmp_path
+def upload_dir(tmp_path, monkeypatch):
+    directory = tmp_path / 'uploads'
+    directory.mkdir()
+    monkeypatch.setattr(lost_images, 'UPLOAD_DIR', directory)
+    return directory
 
 
 def announcement(owner=101):
@@ -39,21 +39,21 @@ def upload(item_id, files, actor=101):
 
 
 @pytest.mark.parametrize('fmt', ['PNG', 'JPEG', 'WEBP'])
-def test_valid_image_content_and_generated_names(fmt, isolated_store):
+def test_valid_image_content_and_generated_names(fmt, upload_dir):
     item_id = announcement()
     response = upload(item_id, [image(fmt, '../../unsafe.' + ('jpg' if fmt == 'JPEG' else fmt.lower()))])
     assert response.status_code == 201, response.text
     stored = response.json()['images'][0]
     assert len(stored['id']) == 32 and 'unsafe' not in stored['url'] and '..' not in stored['url']
-    assert lost_images.image_path(stored).is_file()
-    assert len(list(isolated_store.iterdir())) == 1
+    assert lost_images.image_path(stored['url']).is_file()
+    assert len(list(upload_dir.iterdir())) == 1
 
 
-def test_upload_batch_and_total_limit(isolated_store):
+def test_upload_batch_and_total_limit(upload_dir):
     item_id = announcement()
     assert len(upload(item_id, [image(), image()]).json()['images']) == 2
     assert upload(item_id, [image()] * 4).status_code == 422
-    assert len(list(isolated_store.iterdir())) == 2
+    assert len(list(upload_dir.iterdir())) == 2
     assert len(upload(item_id, [image()] * 3).json()['images']) == 5
     assert upload(item_id, [image()]).status_code == 422
     assert upload(announcement(), [image()] * 6).status_code == 422
@@ -65,59 +65,59 @@ def test_upload_batch_and_total_limit(isolated_store):
     ('script.svg', b'<svg onload="alert(1)"/>', 'image/svg+xml'),
     ('empty.jpg', b'', 'image/jpeg'),
 ])
-def test_invalid_formats_atomic_batch(bad_file, isolated_store):
+def test_invalid_formats_atomic_batch(bad_file, upload_dir):
     item_id = announcement()
     assert upload(item_id, [image(), ('files', bad_file)]).status_code == 422
     assert client.get(f'/lost-items/{item_id}').json()['images'] == []
-    assert not list(isolated_store.iterdir())
+    assert not list(upload_dir.iterdir())
 
 
-def test_mismatched_types_and_oversize(isolated_store):
+def test_mismatched_types_and_oversize(upload_dir):
     item_id = announcement()
     assert upload(item_id, [image('PNG', 'photo.jpg')]).status_code == 422
     assert upload(item_id, [image('PNG', mime='image/jpeg')]).status_code == 422
     large = ('files', ('big.png', b'x' * (5 * 1024 * 1024 + 1), 'image/png'))
     assert upload(item_id, [large]).status_code == 413
-    assert not list(isolated_store.iterdir())
+    assert not list(upload_dir.iterdir())
 
 
-def test_owner_and_missing_announcement(isolated_store):
+def test_owner_and_missing_announcement(upload_dir):
     item_id = announcement()
     assert upload(item_id, [image()], 202).status_code == 403
     assert upload(999, [image()]).status_code == 404
     assert client.post(f'/lost-items/{item_id}/images', files=[image()]).status_code == 422
-    assert not list(isolated_store.iterdir())
+    assert not list(upload_dir.iterdir())
 
 
-def test_image_delete_and_announcement_cleanup(isolated_store):
+def test_image_delete_and_announcement_cleanup(upload_dir):
     item_id = announcement()
     images = upload(item_id, [image(), image()]).json()['images']
     endpoint = f"/lost-items/{item_id}/images/{images[0]['id']}"
     assert client.delete(endpoint, params={'actor_id': 202}).status_code == 403
     assert client.delete(endpoint, params={'actor_id': 101}).status_code == 204
-    assert not lost_images.image_path(images[0]).exists()
+    assert not lost_images.image_path(images[0]['url']).exists()
     assert len(client.get(f'/lost-items/{item_id}').json()['images']) == 1
     assert client.delete(endpoint, params={'actor_id': 101}).status_code == 404
     assert client.delete(f'/lost-items/{item_id}', params={'actor_id': 202}).status_code == 403
     assert client.delete(f'/lost-items/{item_id}', params={'actor_id': 101}).status_code == 204
-    assert not list(isolated_store.iterdir())
+    assert not list(upload_dir.iterdir())
 
 
 def test_image_cannot_be_deleted_from_another_announcement():
     first, second = announcement(), announcement()
     stored = upload(first, [image()]).json()['images'][0]
     assert client.delete(f"/lost-items/{second}/images/{stored['id']}", params={'actor_id': 101}).status_code == 404
-    assert lost_images.image_path(stored).exists()
+    assert lost_images.image_path(stored['url']).exists()
 
 
-def test_failed_disk_write_removes_partial_batch(monkeypatch, isolated_store):
+def test_failed_disk_write_removes_partial_batch(monkeypatch, upload_dir):
     item_id = announcement()
     original = Path.open
     writes = 0
 
     def failing_open(path, mode='r', *args, **kwargs):
         nonlocal writes
-        if path.parent == isolated_store and mode == 'xb':
+        if path.parent == upload_dir and mode == 'xb':
             writes += 1
             if writes == 2:
                 raise OSError('Simulated full disk')
@@ -125,13 +125,12 @@ def test_failed_disk_write_removes_partial_batch(monkeypatch, isolated_store):
 
     monkeypatch.setattr(Path, 'open', failing_open)
     assert upload(item_id, [image(), image()]).status_code == 500
-    assert not list(isolated_store.iterdir())
+    assert not list(upload_dir.iterdir())
     assert client.get(f'/lost-items/{item_id}').json()['images'] == []
 
 
-def test_legacy_announcement_without_images():
+def test_announcement_without_images():
     item_id = announcement()
-    del store.lost[item_id]['images']
     assert client.get(f'/lost-items/{item_id}').json()['images'] == []
 
 
@@ -139,7 +138,7 @@ def test_failed_deletion_returns_error_and_keeps_retryable_record(monkeypatch):
     item_id = announcement()
     images = upload(item_id, [image(), image()]).json()['images']
     original = Path.unlink
-    blocked = lost_images.image_path(images[1])
+    blocked = lost_images.image_path(images[1]['url'])
 
     def failing_unlink(path, *args, **kwargs):
         if path == blocked:
@@ -242,11 +241,11 @@ def test_swagger_and_frontend_integration_contract():
     assert client.get('/static/images/food/ATTRIBUTION.md').status_code == 200
 
 
-def test_uploaded_image_served_by_fastapi(tmp_path, monkeypatch):
+def test_uploaded_image_served_by_fastapi(upload_dir, monkeypatch):
     # The mount retains its real directory; patch only this test to use a temporary mount.
     from fastapi.staticfiles import StaticFiles
     mount = next(route for route in app.routes if getattr(route, 'path', '') == '/uploads/lost_items')
-    monkeypatch.setattr(mount, 'app', StaticFiles(directory=tmp_path))
+    monkeypatch.setattr(mount, 'app', StaticFiles(directory=upload_dir))
     item_id = announcement()
     stored = upload(item_id, [image()]).json()['images'][0]
     response = client.get(stored['url'])
