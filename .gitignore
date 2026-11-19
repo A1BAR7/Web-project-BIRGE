@@ -8,3 +8,4 @@ uploads/lost_items/*
 .env
 .env.*
 !.env.example
+.birge-local/

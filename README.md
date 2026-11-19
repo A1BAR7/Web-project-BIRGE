@@ -6,6 +6,21 @@ in Swagger, and the frontend requires no build step. Source files use UTF-8.
 
 ## Installation and startup
 
+### Quick start on Windows
+
+With Python 3.12 or a current Python 3.10/3.11 patch release installed, double-click
+`start.bat`. It creates `.venv` if needed, checks dependencies, runs migrations,
+starts the API, and opens the site. The first run without a configured
+`DATABASE_URL` downloads PostgreSQL for Windows x64 and initializes a local
+database on `127.0.0.1:55432`. Keep `.birge-local/` to retain this database.
+Closing the window stops the API. The local PostgreSQL process stays available
+for the next launch. A `DATABASE_URL` in the environment or `.env` uses your
+existing database instead. Run `start.bat --no-browser` to start from a terminal
+without opening a browser. If port 8000 is busy, the launcher chooses a free port
+and prints the URLs for the site and Swagger.
+
+### Manual setup
+
 Use Python 3.10+ and a running PostgreSQL server. In `psql`, connect as a
 PostgreSQL administrator and create a local role and database:
 
@@ -30,7 +45,6 @@ takes precedence over `.env`.
 
 ```powershell
 .venv\Scripts\python -m alembic upgrade head
-.venv\Scripts\python -m uvicorn app.main:app --reload
 .venv\Scripts\python -m uvicorn app.main:app --reload
 ```
 

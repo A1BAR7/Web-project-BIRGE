@@ -1,12 +1,21 @@
 @echo off
 setlocal
-cd /d "%~dp0"
+cd /d "%~dp0" || goto :failed
 title BIRGE
-if not exist ".venv\Scripts\python.exe" (
-    echo Python environment not found: .venv
-    pause
-    exit /b 1
-)
-echo Starting BIRGE. Close this window to stop the server.
-".venv\Scripts\python.exe" -c "import threading, webbrowser, uvicorn; timer = threading.Timer(2.0, webbrowser.open, args=('http://127.0.0.1:8000/app/',)); timer.daemon = True; timer.start(); uvicorn.run('app.main:app', host='127.0.0.1', port=8000)"
-if errorlevel 1 pause
+set "BIRGE_PYTHON=.venv\Scripts\python.exe"
+if exist "%BIRGE_PYTHON%" goto :dependencies
+
+echo Creating the Python environment...
+py -3 -m venv .venv || python -m venv .venv || goto :failed
+
+:dependencies
+echo Checking Python dependencies...
+"%BIRGE_PYTHON%" -m pip install --disable-pip-version-check --no-input --quiet -r requirements.txt || goto :failed
+"%BIRGE_PYTHON%" -m scripts.start_local %* || goto :failed
+exit /b 0
+
+:failed
+echo.
+echo BIRGE could not start. See the error above.
+if /i not "%~1"=="--no-browser" pause
+exit /b 1
