@@ -26,6 +26,9 @@ MENU_COLUMNS = ['id',
  'image_alt',
  'image_credit',
  'image_source']
+
+
+ 
 MENU_ROWS = [(10001,
   'Супер комбо 3',
   '3 донера + 3 айрана',

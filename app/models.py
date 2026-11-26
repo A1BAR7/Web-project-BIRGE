@@ -105,7 +105,7 @@ class ConfessionLike(Base):
     user_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     confession: Mapped[Confession] = relationship(back_populates='reactions')
 
-
+#123456
 class FoodItem(Base):
     __tablename__ = 'food_items'
     __table_args__ = (
@@ -134,3 +134,16 @@ class FoodItem(Base):
     image_alt: Mapped[str] = mapped_column(Text)
     image_credit: Mapped[str] = mapped_column(Text)
     image_source: Mapped[str] = mapped_column(Text)
+
+
+class User(Base):
+    __tablename__ = 'users'
+    __table_args__ = (CheckConstraint("role IN ('user', 'admin')", name='ck_user_role'),)
+
+    id: Mapped[int] = mapped_column(IDENTIFIER, primary_key=True)
+    email: Mapped[str] = mapped_column(String(254), unique=True)
+    username: Mapped[str] = mapped_column(String(30), unique=True)
+    hashed_password: Mapped[str] = mapped_column(String(255))
+    role: Mapped[str] = mapped_column(String(5), server_default='user')
+    is_active: Mapped[bool] = mapped_column(Boolean, server_default=true())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

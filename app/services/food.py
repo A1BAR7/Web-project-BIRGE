@@ -30,6 +30,7 @@ def image_metadata(url, name):
             'image_credit': info.get('credit', ''), 'image_source': info.get('source', '')}
 
 
+#123456
 def list_food(db, canteen, category, search, min_price, max_price):
     if min_price is not None and max_price is not None and min_price > max_price:
         raise HTTPException(422, 'min_price must not exceed max_price')

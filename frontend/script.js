@@ -7,7 +7,9 @@ let foodItems = [], homeFoodItems = [];
 let foodLoading = true, foodError = '', foodRequest = 0, foodFiltersReady = false;
 // The FastAPI server is the source of truth for all three interactive sections.
 let lostItems = [], skills = [], confessions = [];
-const ACTOR_ID = 101; // Demo identity only; not secure authentication.
+// Authenticated user (JWT in localStorage); ownership is decided by the server.
+let ME = null, TOKEN = null;
+try { TOKEN = localStorage.getItem('birge_token'); } catch {}
 // Local previews connect to FastAPI; the served website uses its own origin.
 const localPreview = location.protocol === 'file:' || (
   ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname) &&
@@ -20,13 +22,16 @@ const fieldLabels = {
 };
 async function api(path, options={}) {
   let response;
+  const method = (options.method||'GET').toUpperCase();
+  if (!TOKEN && method !== 'GET' && !path.startsWith('/auth/')) { openAuth(); throw new Error('Алдымен жүйеге кіріңіз.'); }
   try {
-    response = await fetch(API+path, { ...options, headers: {...(options.body instanceof FormData ? {} : {'Content-Type':'application/json'}),...(options.headers||{})} });
+    response = await fetch(API+path, { ...options, headers: {...(options.body instanceof FormData ? {} : {'Content-Type':'application/json'}),...(TOKEN ? {Authorization:'Bearer '+TOKEN} : {}),...(options.headers||{})} });
   } catch {
     throw new Error('Серверге қосылу мүмкін емес. FastAPI іске қосылғанын тексеріңіз.');
   }
   if (response.status===204) return null;
   const result = await response.json().catch(()=>null);
+  if (response.status===401 && TOKEN && !path.startsWith('/auth/login')) { setSession(null); openAuth(); throw new Error('Сессия аяқталды. Қайта кіріңіз.'); }
   if (!response.ok) {
     const detail = result?.detail;
     const message = Array.isArray(detail)
@@ -40,7 +45,8 @@ async function api(path, options={}) {
   return result;
 }
 async function loadBackend(){
-    const [lost, skillList, posts] = await Promise.all([api('/lost-items'),api('/skills'),api('/confessions')]);
+    // Lost & Found is public; SkillQos and Ishimде need a signed-in user.
+    const [lost, skillList, posts] = await Promise.all([api('/lost-items'),TOKEN?api('/skills'):[],TOKEN?api('/confessions'):[]]);
     lostItems = lost.map(x=>({...x,date:'Жарияланды'}));
     skills = skillList.map(x=>({...x,initial:x.person?.[0]?.toUpperCase()||'?',tag:'COMMUNITY'}));
     confessions = posts.map(x=>({...x,time:'Жарияланды'})).reverse();
@@ -125,9 +131,9 @@ function renderLost(){
  $$('[data-contact]').forEach(b=>b.addEventListener('click',async()=>{
   const item=lostItems.find(x=>x.id===Number(b.dataset.contact));
   if(!item)return;
-  if(item.owner_id!==ACTOR_ID){toast('Бұл хабарландыруды тек иесі аяқтай алады.');return}
+  if(item.owner_id!==ME?.id){toast('Бұл хабарландыруды тек иесі аяқтай алады.');return}
   if(!await askConfirm('Зат табылды / қайтарылды деп белгілеу керек пе?', 'Аяқталды деп белгілеу'))return;
-  try{await api(`/lost-items/${item.id}/resolve?actor_id=${ACTOR_ID}`,{method:'POST'});await loadBackend();toast('Хабарландыру аяқталды')}catch(err){showError(err)}
+  try{await api(`/lost-items/${item.id}/resolve`,{method:'POST'});await loadBackend();toast('Хабарландыру аяқталды')}catch(err){showError(err)}
 }));
 }
 $('#lostSearch').addEventListener('input',renderLost);
@@ -136,13 +142,13 @@ $$('#lostFilters button').forEach(b=>b.addEventListener('click',()=>{lostFilter=
 function renderSkills(){
  const q=$('#skillSearch').value.toLowerCase();
  const items=skills.filter(x=>(skillFilter==='all'||x.kind===skillFilter)&&(x.name+' '+x.person+' '+x.detail+' '+x.tag).toLowerCase().includes(q));
- $('#skillGrid').innerHTML=items.length?items.map(x=>`<article class="skill-card"><div class="skill-body"><div class="skill-head"><div class="skill-avatar">${escapeHtml(x.initial)}</div><div><b >${escapeHtml(x.person)}</b><small>SDU студенті</small></div></div><span class="skill-type">${x.kind==='teach'?'Үйретемін':'Үйренемін'}</span><h3>${escapeHtml(x.name)}</h3><p>${escapeHtml(x.detail)}</p><div class="skill-bottom"><span>${icon('repeat-2')} ${escapeHtml(x.exchange)}</span><button class="outline-button" data-skill="${x.id}">${x.owner_id===ACTOR_ID?'Өтінімдерді көру':'Ұсыныс жіберу'}</button></div></div></article>`).join(''):'<div class="empty-state">Сұранысқа сай дағды табылмады.</div>';
+ $('#skillGrid').innerHTML=items.length?items.map(x=>`<article class="skill-card"><div class="skill-body"><div class="skill-head"><div class="skill-avatar">${escapeHtml(x.initial)}</div><div><b >${escapeHtml(x.person)}</b><small>SDU студенті</small></div></div><span class="skill-type">${x.kind==='teach'?'Үйретемін':'Үйренемін'}</span><h3>${escapeHtml(x.name)}</h3><p>${escapeHtml(x.detail)}</p><div class="skill-bottom"><span>${icon('repeat-2')} ${escapeHtml(x.exchange)}</span><button class="outline-button" data-skill="${x.id}">${x.owner_id===ME?.id?'Өтінімдерді көру':'Ұсыныс жіберу'}</button></div></div></article>`).join(''):'<div class="empty-state">Сұранысқа сай дағды табылмады.</div>';
  $$('[data-skill]').forEach(b=>b.addEventListener('click',async()=>{
   const id=Number(b.dataset.skill), item=skills.find(x=>x.id===id);
   if(!item)return;
-  if(item.owner_id===ACTOR_ID){
+  if(item.owner_id===ME?.id){
     try{
-      const requests=await api(`/skills/${id}/requests?actor_id=${ACTOR_ID}`);
+      const requests=await api(`/skills/${id}/requests`);
       if(!requests.length){toast('Әзірге өтінім жоқ');return}
       const pending=requests.filter(x=>x.status==='pending');
       if(!pending.length){toast('Барлық өтінімдер қаралды');return}
@@ -150,13 +156,13 @@ function renderSkills(){
       const decision=await presentAction({title:`Өтінім #${request.id}`,description:request.message,choices:[{id:'cancel',label:'Кейінірек'},{id:'rejected',label:'Бас тарту'},{id:'accepted',label:'Қабылдау',primary:true}]});
       if(!['accepted','rejected'].includes(decision))return;
       const accepted=decision==='accepted';
-      await api(`/skills/${id}/requests/${request.id}?actor_id=${ACTOR_ID}&decision=${accepted?'accepted':'rejected'}`,{method:'PATCH'});
+      await api(`/skills/${id}/requests/${request.id}?decision=${accepted?'accepted':'rejected'}`,{method:'PATCH'});
       toast(accepted?'Өтінім қабылданды':'Өтінім қабылданбады');
     }catch(err){showError(err)}
   }else{
     const message=await askText('Өтінімге хабарлама жазыңыз','Бірге үйренгім келеді');
     if(message===null)return;
-    try{await api(`/skills/${id}/requests`,{method:'POST',body:JSON.stringify({applicant_id:ACTOR_ID,message})});toast('Өтінім жіберілді')}catch(err){showError(err)}
+    try{await api(`/skills/${id}/requests`,{method:'POST',body:JSON.stringify({message})});toast('Өтінім жіберілді')}catch(err){showError(err)}
   }
 }));
 }
@@ -167,9 +173,9 @@ function renderConfessions(){
  $('#confessFeed').innerHTML=confessions.length?confessions.map(x=>`<article class="confess-card"><div class="confess-top"><div class="anonymous-label"><span>${icon('message-circle')}</span> Анонимді студент</div><time>${escapeHtml(x.time)}</time></div><p>${escapeHtml(x.text)}</p><div class="confess-actions"><button class="reaction" data-like="${x.id}">${icon('heart')} <span>${x.likes}</span> Қолдау</button><button class="reaction" data-report="${x.id}">${icon('flag')} Шағымдану</button></div></article>`).join(''):'<div class="empty-state">Алғашқы ойыңызды бөлісіңіз.</div>';
  $$('[data-like]').forEach(b=>b.addEventListener('click',async()=>{
   const id=Number(b.dataset.like);
-  try{await api(`/confessions/${id}/likes?user_id=${ACTOR_ID}`,{method:'POST'});await loadBackend();toast('Қолдауың үшін рақмет')}
+  try{await api(`/confessions/${id}/likes`,{method:'POST'});await loadBackend();toast('Қолдауың үшін рақмет')}
   catch(err){if(err.message==='Already liked'){
-    try{await api(`/confessions/${id}/likes?user_id=${ACTOR_ID}`,{method:'DELETE'});await loadBackend();toast('Лайк алынды')}catch(e){showError(e)}
+    try{await api(`/confessions/${id}/likes`,{method:'DELETE'});await loadBackend();toast('Лайк алынды')}catch(e){showError(e)}
   }else showError(err)}
 }));
  $$('[data-report]').forEach(b=>b.addEventListener('click',()=>toast('Шағым жіберілмеді: модерация әзірге қолжетімсіз')));
@@ -178,7 +184,7 @@ $('#confessInput').addEventListener('input',e=>$('#charCount').textContent=`${e.
 $('#publishConfess').addEventListener('click',async()=>{
   const text=$('#confessInput').value.trim();
   if (text.length < 3) { toast('Хабарлама кемінде 3 таңбадан тұруы керек.'); return; }
-  try{await api('/confessions',{method:'POST',body:JSON.stringify({text,author_id:ACTOR_ID})});$('#confessInput').value='';$('#charCount').textContent='0 / 280';await loadBackend();toast('Анонимді жазба жарияланды')}
+  try{await api('/confessions',{method:'POST',body:JSON.stringify({text})});$('#confessInput').value='';$('#charCount').textContent='0 / 280';await loadBackend();toast('Анонимді жазба жарияланды')}
   catch(err){showError(err)}
 });
 
@@ -190,20 +196,20 @@ $('#closeImage').onclick=()=>$('#imageDialog').close();
 for(const id of ['detailDialog','imageDialog'])$('#'+id).addEventListener('click',event=>{if(event.target===event.currentTarget){const rect=event.currentTarget.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)event.currentTarget.close()}});
 async function showLostDetail(id){
  try{
-  const item=await api(`/lost-items/${id}`), owner=item.owner_id===ACTOR_ID;
+  const item=await api(`/lost-items/${id}`), owner=item.owner_id===ME?.id;
   const images=item.images||[];
   openDetail(`<h2 id="detailTitle">${escapeHtml(item.name)}</h2><p>${escapeHtml(item.desc)}</p><p>${icon('map-pin')} ${escapeHtml(item.place)} · ${item.resolved?'Аяқталды':item.status==='lost'?'Жоғалған':'Табылған'}</p><div class="image-gallery">${images.length?images.map(image=>`<div><button type="button" class="gallery-image" data-enlarge="${escapeHtml(image.url)}" aria-label="Фотосуретті үлкейту"><img src="${escapeHtml(assetUrl(image.url))}" alt="${escapeHtml(item.name)}"></button>${owner?`<button type="button" class="outline-button" data-delete-image="${image.id}">Фотоны өшіру</button>`:''}</div>`).join(''):'<p class="photo-placeholder">Фото жоқ</p>'}</div>${owner?`<div id="detailUploader"></div><button type="button" class="primary-button full" id="saveLostImages">Фотоларды қосу</button><p id="detailUploadError" class="form-error" role="alert"></p><button type="button" class="outline-button full" id="deleteLostItem">Хабарландыруды өшіру</button>`:''}`);
   $$('[data-enlarge]').forEach(button=>button.onclick=()=>{$('#enlargedImage').src=assetUrl(button.dataset.enlarge);$('#enlargedImage').alt=item.name;$('#imageDialog').showModal()});
   if(owner){
    const uploader=setupUploader($('#detailUploader'),images.length);
    $('#saveLostImages').onclick=async event=>{if(!uploader.files.length){uploader.error('Алдымен фото таңдаңыз.');return}const button=event.currentTarget;button.disabled=true;button.textContent='Жүктелуде…';try{await sendImages(id,uploader.files);uploader.clear();await loadBackend();await showLostDetail(id);toast('Фотолар қосылды')}catch(error){uploader.error(error.message)}finally{button.disabled=false;button.textContent='Фотоларды қосу'}};
-   $$('[data-delete-image]').forEach(button=>button.onclick=async()=>{if(!await askConfirm('Осы фотоны өшіру керек пе?', 'Фотоны өшіру', true))return;button.disabled=true;try{await api(`/lost-items/${id}/images/${button.dataset.deleteImage}?actor_id=${ACTOR_ID}`,{method:'DELETE'});await loadBackend();await showLostDetail(id);toast('Фото өшірілді')}catch(error){showError(error)}finally{button.disabled=false}});
-   $('#deleteLostItem').onclick=async event=>{if(!await askConfirm('Хабарландыру мен оның фотоларын өшіру керек пе?', 'Өшіру', true))return;const button=event.currentTarget;button.disabled=true;try{await api(`/lost-items/${id}?actor_id=${ACTOR_ID}`,{method:'DELETE'});$('#detailDialog').close();await loadBackend();toast('Хабарландыру өшірілді')}catch(error){showError(error)}finally{button.disabled=false}};
+   $$('[data-delete-image]').forEach(button=>button.onclick=async()=>{if(!await askConfirm('Осы фотоны өшіру керек пе?', 'Фотоны өшіру', true))return;button.disabled=true;try{await api(`/lost-items/${id}/images/${button.dataset.deleteImage}`,{method:'DELETE'});await loadBackend();await showLostDetail(id);toast('Фото өшірілді')}catch(error){showError(error)}finally{button.disabled=false}});
+   $('#deleteLostItem').onclick=async event=>{if(!await askConfirm('Хабарландыру мен оның фотоларын өшіру керек пе?', 'Өшіру', true))return;const button=event.currentTarget;button.disabled=true;try{await api(`/lost-items/${id}`,{method:'DELETE'});$('#detailDialog').close();await loadBackend();toast('Хабарландыру өшірілді')}catch(error){showError(error)}finally{button.disabled=false}};
    $('#detailDialog').addEventListener('close',()=>uploader.clear(),{once:true});
   }
  }catch(error){showError(error)}
 }
-async function sendImages(id,files){const body=new FormData();files.forEach(file=>body.append('files',file));return api(`/lost-items/${id}/images?actor_id=${ACTOR_ID}`,{method:'POST',body})}
+async function sendImages(id,files){const body=new FormData();files.forEach(file=>body.append('files',file));return api(`/lost-items/${id}/images`,{method:'POST',body})}
 function setupUploader(container,existing=0){
  const state={files:[],urls:[],error:message=>$('.upload-error',container).textContent=message,clear(){state.urls.forEach(URL.revokeObjectURL);state.urls=[];state.files=[];render()}};
  container.innerHTML=`<div class="upload-zone"><p>Фотоларды осы жерге апарыңыз</p><label class="outline-button upload-label">${icon('upload')} Фото таңдау<input class="file-picker" type="file" accept="image/jpeg,image/png,image/webp" multiple aria-label="Фото таңдау"></label><p class="demo-note">JPG, PNG, WebP · әр фото 5 МБ дейін · <span class="image-counter"></span></p></div><p class="upload-error form-error" role="alert"></p><div class="upload-previews"></div>`;
@@ -230,8 +236,8 @@ let modalUploader=null, modalReturnFocus=null;
 
 // Reusable add-item modal
 const modalConfig={
- lost:{title:'Зат жариялау',desc:'Жоғалған немесе табылған зат туралы ақпарат бер.',fields:[['name','Заттың атауы','text','Мысалы: Қара құлаққап'],['status','Статусы','select',['Жоғалған','Табылған']],['place','Қай жерде?','text','Мысалы: Library, 2-қабат'],['desc','Сипаттамасы','textarea','Зат туралы қосымша ақпарат']],async submit(data){const item=await api('/lost-items',{method:'POST',body:JSON.stringify({name:data.name,status:data.status==='Жоғалған'?'lost':'found',place:data.place,desc:data.desc,owner_id:ACTOR_ID})});if(modalUploader?.files.length){try{await sendImages(item.id,modalUploader.files)}catch(error){try{await api(`/lost-items/${item.id}?actor_id=${ACTOR_ID}`,{method:'DELETE'})}catch{throw new Error(`Фото жүктелмеді. Хабарландыру #${item.id} сақталған болуы мүмкін; қайта жарияламас бұрын тізімді тексеріңіз.`)}throw error}}await loadBackend()}},
- skill:{title:'SkillQos ұсынысы',desc:'Қандай дағды үйретесің немесе үйренгің келеді?',fields:[['name','Дағды атауы','text','Мысалы: Python негіздері'],['kind','Бағыт','select',['Үйретемін','Үйренемін']],['person','Есімің','text','Мысалы: Аян'],['detail','Қысқаша сипаттама','textarea','Не ұсына аласың?'],['exchange','Қандай дағдыға қызығасың?','text','Мысалы: English speaking']],async submit(data){await api('/skills',{method:'POST',body:JSON.stringify({name:data.name,kind:data.kind==='Үйретемін'?'teach':'learn',person:data.person,detail:data.detail,exchange:data.exchange,owner_id:ACTOR_ID})});await loadBackend()}}
+ lost:{title:'Зат жариялау',desc:'Жоғалған немесе табылған зат туралы ақпарат бер.',fields:[['name','Заттың атауы','text','Мысалы: Қара құлаққап'],['status','Статусы','select',['Жоғалған','Табылған']],['place','Қай жерде?','text','Мысалы: Library, 2-қабат'],['desc','Сипаттамасы','textarea','Зат туралы қосымша ақпарат']],async submit(data){const item=await api('/lost-items',{method:'POST',body:JSON.stringify({name:data.name,status:data.status==='Жоғалған'?'lost':'found',place:data.place,desc:data.desc})});if(modalUploader?.files.length){try{await sendImages(item.id,modalUploader.files)}catch(error){try{await api(`/lost-items/${item.id}`,{method:'DELETE'})}catch{throw new Error(`Фото жүктелмеді. Хабарландыру #${item.id} сақталған болуы мүмкін; қайта жарияламас бұрын тізімді тексеріңіз.`)}throw error}}await loadBackend()}},
+ skill:{title:'SkillQos ұсынысы',desc:'Қандай дағды үйретесің немесе үйренгің келеді?',fields:[['name','Дағды атауы','text','Мысалы: Python негіздері'],['kind','Бағыт','select',['Үйретемін','Үйренемін']],['person','Есімің','text','Мысалы: Аян'],['detail','Қысқаша сипаттама','textarea','Не ұсына аласың?'],['exchange','Қандай дағдыға қызығасың?','text','Мысалы: English speaking']],async submit(data){await api('/skills',{method:'POST',body:JSON.stringify({name:data.name,kind:data.kind==='Үйретемін'?'teach':'learn',person:data.person,detail:data.detail,exchange:data.exchange})});await loadBackend()}}
 };
 function openModal(type){
  modalReturnFocus=document.activeElement;
@@ -281,7 +287,56 @@ $('#modalForm').addEventListener('submit', async e => {
   }
 });
 $('#notificationButton').addEventListener('click',()=>toast('Әзірге жаңа хабарлама жоқ'));
-$('#profileButton').addEventListener('click',()=>toast('Сіз қонақ режиміндесіз. Аккаунтқа кіру әзірге қолжетімсіз'));
+// ---- Authentication ----
+function setSession(token, user=null){
+  TOKEN = token; ME = user;
+  try { token ? localStorage.setItem('birge_token', token) : localStorage.removeItem('birge_token'); } catch {}
+  $('#profileButton b').textContent = user ? user.username : 'Қонақ студент';
+  $('#profileButton small').textContent = user ? (user.role === 'admin' ? 'Әкімші · SDU' : 'SDU University') : 'Кіру / Тіркелу';
+  $('#profileButton .avatar').textContent = (user?.username?.[0] || 'B').toUpperCase();
+}
+async function restoreSession(){
+  if (!TOKEN) return setSession(null);
+  try { setSession(TOKEN, await api('/auth/me')); } catch { setSession(null); }
+  await loadBackend().catch(showError);
+}
+let authMode = 'login';
+function openAuth(mode='login'){
+  authMode = mode;
+  const register = mode === 'register';
+  $('#authTitle').textContent = register ? 'Тіркелу' : 'Кіру';
+  $('#authEmailField').hidden = !register;
+  $('#authEmail').required = register;
+  $('#authSubmit').textContent = register ? 'Тіркелу' : 'Кіру';
+  $('#authSwitch').textContent = register ? 'Аккаунт бар ма? Кіру' : 'Аккаунт жоқ па? Тіркелу';
+  $('#authLoginLabel').textContent = register ? 'Пайдаланушы аты' : 'Email немесе пайдаланушы аты';
+  $('#authPassword').autocomplete = register ? 'new-password' : 'current-password';
+  $('#authError').textContent = '';
+  if (!$('#authDialog').open) $('#authDialog').showModal();
+}
+$('#authSwitch').addEventListener('click', () => openAuth(authMode === 'login' ? 'register' : 'login'));
+$('#closeAuth').addEventListener('click', () => $('#authDialog').close());
+$('#authForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  const username = $('#authLogin').value.trim(), password = $('#authPassword').value;
+  $('#authError').textContent = '';
+  try {
+    if (authMode === 'register') {
+      await api('/auth/register', {method:'POST', body:JSON.stringify({email:$('#authEmail').value.trim(), username, password})});
+    }
+    const login = await api('/auth/login', {method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:new URLSearchParams({username, password})});
+    TOKEN = login.access_token;
+    setSession(TOKEN, await api('/auth/me'));
+    $('#authForm').reset(); $('#authDialog').close();
+    await loadBackend(); toast('Қош келдіңіз, ' + ME.username + '!');
+  } catch (err) { if (!ME) TOKEN = null; $('#authError').textContent = err.message; }
+});
+$('#profileButton').addEventListener('click', async () => {
+  if (!ME) return openAuth();
+  if (await askConfirm('Жүйеден шығу керек пе?', 'Шығу')) { setSession(null); await loadBackend().catch(showError); toast('Жүйеден шықтыңыз'); }
+});
+restoreSession();
 function renderHomeFeed(){const all=[...confessions].slice(0,2);$('#homeFeed').innerHTML=all.length?all.map(x=>`<div class="mini-feed-item"><div class="feed-dot">${icon('message-circle')}</div><div><b>Анонимді студент</b><p>${escapeHtml(x.text.slice(0,105))}${x.text.length>105?'…':''}</p></div></div>`).join(''):'<div class="empty-state">Әзірге жазба жоқ. Ishimде бөлімінде алғашқы ойыңызды бөлісіңіз.</div>';$('#postStat').textContent=String(confessions.length+lostItems.length+skills.length)}
 function refresh(){renderFood();renderLost();renderSkills();renderConfessions();renderHomeFeed()}
 refresh();

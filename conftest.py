@@ -9,8 +9,13 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.schema import CreateSchema, DropSchema
 
+os.environ['SECRET_KEY'] = 'test-secret-key-for-pytest-only-0123456789'  # before app code reads settings
+
+from fastapi.testclient import TestClient
+
 from app.database import get_session
 from app.main import app
+from app.models import User
 
 
 @pytest.fixture
@@ -62,3 +67,31 @@ def sessions(database_engine):
         yield factory
     finally:
         app.dependency_overrides.pop(get_session)
+
+
+def make_account(sessions, name, role='user'):
+    """Register `name` through the API, optionally promote to admin, return (auth headers, user id)."""
+    client = TestClient(app)
+    body = {'email': f'{name}@sdu.edu.kz', 'username': name, 'password': 'S3cret-pass!'}
+    user_id = client.post('/auth/register', json=body).json()['id']
+    if role != 'user':
+        with sessions() as session:
+            session.get(User, user_id).role = role
+            session.commit()
+    token = client.post('/auth/login', data={'username': name, 'password': body['password']}).json()['access_token']
+    return {'Authorization': f'Bearer {token}'}, user_id
+
+
+@pytest.fixture
+def alice(sessions):
+    return make_account(sessions, 'alice')
+
+
+@pytest.fixture
+def bob(sessions):
+    return make_account(sessions, 'bob')
+
+
+@pytest.fixture
+def admin(sessions):
+    return make_account(sessions, 'root', 'admin')

@@ -11,7 +11,7 @@ def get_or_404(db, model, item_id, *, lock=False):
         raise HTTPException(404, 'Resource not found')
     return item
 
-
+#1234578
 def list_records(db, model, *filters):
     return list(db.scalars(select(model).where(*filters).order_by(model.id)))
 
@@ -31,6 +31,6 @@ def apply_update(item, body):
         setattr(item, key, value)
 
 
-def owner_only(item, actor_id):
-    if item.owner_id != actor_id:
+def owner_only(item, user, *, allow_admin=False):
+    if item.owner_id != user.id and not (allow_admin and user.role == 'admin'):
         raise HTTPException(403, 'Only the owner may perform this operation')

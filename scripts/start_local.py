@@ -123,6 +123,17 @@ def configure_database():
         os.environ['DATABASE_URL'] = start_postgres()
 
 
+def configure_secret():
+    """Give local runs a persistent JWT signing key unless SECRET_KEY is configured."""
+    if os.getenv('SECRET_KEY') or dotenv_values(ROOT / '.env').get('SECRET_KEY'):
+        return
+    STATE.mkdir(exist_ok=True)
+    key_file = STATE / 'secret_key'
+    if not key_file.exists():
+        key_file.write_text(token_hex(32), encoding='ascii')
+    os.environ['SECRET_KEY'] = key_file.read_text(encoding='ascii').strip()
+
+
 def open_when_ready(server, url):
     while not server.started and not server.should_exit:
         time.sleep(0.1)
@@ -137,6 +148,7 @@ def main():
 
     try:
         configure_database()
+        configure_secret()
         print('Applying database migrations...', flush=True)
         migration = subprocess.run([sys.executable, '-m', 'alembic', 'upgrade', 'head'], cwd=ROOT)
         if migration.returncode:

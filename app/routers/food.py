@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Query, Response
+from fastapi import APIRouter, Depends, Query, Response
 from app.database import DatabaseSession
+from app.dependencies import get_current_admin_user
 from app.food_schemas import FoodCreate, FoodRead, FoodUpdate
 from app.models import FoodItem
 from app.services import food
@@ -7,7 +8,7 @@ from app.services.core import get_or_404
 
 router = APIRouter(prefix='/food', tags=['Däm'])
 
-
+#123456
 @router.get('', response_model=list[FoodRead])
 def list_items(db: DatabaseSession, canteen: str | None = Query(None, max_length=100),
                category: str | None = Query(None, max_length=80),
@@ -17,7 +18,10 @@ def list_items(db: DatabaseSession, canteen: str | None = Query(None, max_length
     return food.list_food(db, canteen, category, search, min_price, max_price)
 
 
-@router.post('', response_model=FoodRead, status_code=201)
+admin = [Depends(get_current_admin_user)]
+
+
+@router.post('', response_model=FoodRead, status_code=201, dependencies=admin)
 def create_item(body: FoodCreate, db: DatabaseSession):
     return food.create_food(db, body)
 
@@ -27,12 +31,12 @@ def get_item(food_id: int, db: DatabaseSession):
     return get_or_404(db, FoodItem, food_id)
 
 
-@router.patch('/{food_id}', response_model=FoodRead)
+@router.patch('/{food_id}', response_model=FoodRead, dependencies=admin)
 def update_item(food_id: int, body: FoodUpdate, db: DatabaseSession):
     return food.update_food(db, food_id, body)
 
 
-@router.delete('/{food_id}', status_code=204)
+@router.delete('/{food_id}', status_code=204, dependencies=admin)
 def delete_item(food_id: int, db: DatabaseSession):
     db.delete(get_or_404(db, FoodItem, food_id, lock=True))
     db.commit()

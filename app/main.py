@@ -4,11 +4,12 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import DataError, IntegrityError, OperationalError, SQLAlchemyError
-from app.routers import lost, skills, confessions, food
+from app.routers import auth, lost, skills, confessions, food
 from app.services.lost_images import UPLOAD_DIR
 
 app = FastAPI(title='BIRGE Campus Community API',version='1.1.0',description='REST API for Lost & Found, Däm, SkillQos, and Ishimде')
 app.add_middleware(CORSMiddleware,allow_origins=['*'],allow_methods=['*'],allow_headers=['*'])
+app.include_router(auth.router)
 app.include_router(lost.router)
 app.include_router(skills.router)
 app.include_router(confessions.router)

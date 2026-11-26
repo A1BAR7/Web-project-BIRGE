@@ -38,7 +38,7 @@ python -m venv .venv
 Copy-Item .env.example .env
 ```
 
-Set `DATABASE_URL` in `.env` to
+Set `SECRET_KEY` in `.env` (see Authentication below) and `DATABASE_URL` to
 `postgresql+psycopg://birge:<password>@localhost:5432/birge`. URL-encode
 reserved characters in the password. A `DATABASE_URL` set in the environment
 takes precedence over `.env`.
@@ -69,9 +69,9 @@ Existing JSON CRUD and resolve endpoints at `/lost-items` are preserved.
 Responses include `images: [{id, url}]`. Announcements without photos return an
 empty list.
 
-- `POST /lost-items/{item_id}/images?actor_id=101`: multipart form with repeated
+- `POST /lost-items/{item_id}/images` (Bearer token, owner only): multipart form with repeated
   `files` fields; returns the updated announcement with **201**.
-- `DELETE /lost-items/{item_id}/images/{image_id}?actor_id=101`: **204**.
+- `DELETE /lost-items/{item_id}/images/{image_id}` (owner or admin): **204**.
 - Deleting an announcement also removes its uploaded images.
 
 Five images per announcement, each at most **5 × 1024 × 1024 bytes**. JPG/JPEG,
@@ -121,16 +121,51 @@ assets/provenance when additional dishes are supplied. Frontend cards fetch
 from `/food`, with API search/filtering, local price sorting, availability,
 details, loading skeletons, empty/error/retry states and clear filters.
 
+## Authentication and authorization
+
+Set in `.env` (see `.env.example`): `SECRET_KEY` (**required**, >= 32 random
+characters; generate with `python -c "import secrets; print(secrets.token_urlsafe(48))"`),
+`JWT_ALGORITHM` (HS256 by default) and `ACCESS_TOKEN_EXPIRE_MINUTES` (30 by default).
+`start.bat` generates a persistent key in `.birge-local/secret_key` when none is set.
+Run `alembic upgrade head` to create the `users` table.
+
+| Endpoint | Access |
+| --- | --- |
+| `POST /auth/register` | public; always creates role `user`; 201 / 409 duplicate / 422 |
+| `POST /auth/login` | public; form fields `username` (email **or** username) + `password`; returns `access_token` |
+| `GET /auth/me` | any active user |
+| `GET /users`, `PATCH /users/{id}` | admin only (role / `is_active`; admins cannot demote themselves) |
+| `GET /food`, `GET /food/{id}`, `GET /lost-items`, `GET /lost-items/{id}` | **public** |
+| `POST/PATCH/DELETE /food` | admin only |
+| `/lost-items` create, edit, resolve, upload | logged-in; edit/resolve/upload owner only; delete (item/image) owner or admin |
+| `/skills/**`, `/confessions/**` (including reads) | logged-in; skills/requests owner only (admin may delete skills); confessions edit author only (admin may delete) |
+
+Passwords are hashed with Argon2id. Emails and usernames are stored lowercase and
+are unique. Tokens carry only `sub` (user id), `iat`, `exp`; the role and active
+flag are read from the database on every request, so deactivation and role changes
+apply immediately. Failures: 401 missing/invalid/expired token, 403 inactive user,
+wrong role or not the owner.
+
+Create the first administrator (registration never grants admin):
+
+```powershell
+.venv\Scripts\python scripts/create_admin.py admin@sdu.edu.kz admin
+```
+
+Swagger: open `/docs`, call `POST /auth/register`, press **Authorize** and enter
+the email/username and password (the token is attached to every request), then
+try `GET /auth/me`, `POST /skills` or `POST /lost-items`. Postman: `POST /auth/login`
+with body type `x-www-form-urlencoded` (`username`, `password`), then send
+`Authorization: Bearer <access_token>` (or Auth tab -> Bearer Token).
+
 ## Existing workflows and storage
 
 SkillQos retains creation, filtering, applications and owner accept/reject.
-Ishimде retains anonymous posts and like/unlike. Create a skill with owner 202
-in Swagger and apply on the website as actor 101. For owner decisions, create a
-request to a skill owned by 101 and use its button on the site.
+Ishimде retains anonymous posts and like/unlike. Register two accounts: create a skill
+with one and apply from the other; the owner decides on the request in the site.
 
-The frontend uses **demo actor 101**. Actor/owner IDs preserve the existing
-ownership model; they are not secure authentication. Food management is also
-unauthenticated; an admin/login system was outside the requested scope.
+Owner/author/applicant IDs are now the authenticated user's id taken from the
+JWT; clients can no longer supply them (see Authentication).
 
 PostgreSQL persists announcements, image metadata, skills, applications,
 confessions, likes and menu items. Announcements own images, skills own
@@ -195,6 +230,8 @@ temporary schema per test and use temporary directories for uploads.
 
 ### Test the frontend manually
 
+0. Click the profile button in the sidebar to register/sign in; Lost & Found and Däm
+   browsing work without it, publishing, SkillQos and Ishimде need it.
 1. Open `/app/`, select Däm, and confirm ten cards with the correct menu,
    prices, canteens and corresponding supplied photos.
 2. Combine canteen/category/search, sort both ways, clear filters, and inspect
@@ -212,10 +249,20 @@ temporary schema per test and use temporary directories for uploads.
 
 ### Test Swagger manually
 
-1. Open `/docs`; run `GET /food` and combined filters, then food POST/PATCH/DELETE.
-   Use price 0 for 422 and a missing ID for 404.
-2. Create `/lost-items` with owner 101. In its multipart image upload operation,
-   enter the ID and actor 101, select files, and execute. Inspect returned URLs.
-   Use actor 202 for 403. Delete images and the announcement as owner 101.
+1. Open `/docs`; run `GET /food` and combined filters; food POST/PATCH/DELETE need an
+   admin token. Use price 0 for 422 and a missing ID for 404.
+2. Authorize, then create `/lost-items`. In its multipart image upload operation,
+   enter the ID, select files, and execute. Inspect returned URLs. Authorize as a
+   second user for 403. Delete images and the announcement as the owner.
 3. Verify `/skills` and `/confessions` still work. Check `/openapi.json` includes
    the food schemas and multipart upload operation.
+
+## Known limitations
+
+- Existing `owner_id`/`author_id`/`applicant_id`/`user_id` columns have no foreign key
+  to `users` (legacy rows hold demo ids, which cannot be deleted or remapped
+  automatically). Legacy rows created before authentication may therefore be attributed
+  to a new account that happens to receive the same numeric id.
+- Access tokens are not revocable before expiry (there is no refresh token or logout
+  endpoint on the server); the frontend logout discards the token locally.
+- No rate limiting or account lockout on `/auth/login`.

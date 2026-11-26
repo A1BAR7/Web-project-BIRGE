@@ -18,9 +18,9 @@ FORMATS = {'JPEG': ('.jpg', {'image/jpeg'}), 'PNG': ('.png', {'image/png'}),
 logger = logging.getLogger(__name__)
 
 
-def owned_item(db, item_id, actor_id):
+def owned_item(db, item_id, user, *, allow_admin=False):
     item = get_or_404(db, LostItem, item_id, lock=True)
-    owner_only(item, actor_id)
+    owner_only(item, user, allow_admin=allow_admin)
     return item
 
 
@@ -62,8 +62,8 @@ def validate_content(data, upload):
     return extension
 
 
-def upload_images(db, item_id, actor_id, files):
-    item = owned_item(db, item_id, actor_id)
+def upload_images(db, item_id, user, files):
+    item = owned_item(db, item_id, user)
     if not files or len(item.images) + len(files) > MAX_IMAGES:
         raise HTTPException(422, 'An announcement can have at most 5 images')
     prepared = []
@@ -99,8 +99,8 @@ def upload_images(db, item_id, actor_id, files):
     return item
 
 
-def delete_image(db, item_id, actor_id, image_id):
-    item = owned_item(db, item_id, actor_id)
+def delete_image(db, item_id, user, image_id):
+    item = owned_item(db, item_id, user, allow_admin=True)
     image = next((image for image in item.images if image.id == image_id), None)
     if image is None:
         raise HTTPException(404, 'Image not found on this announcement')
@@ -109,8 +109,8 @@ def delete_image(db, item_id, actor_id, image_id):
     db.commit()
 
 
-def delete_item(db, item_id, actor_id):
-    item = owned_item(db, item_id, actor_id)
+def delete_item(db, item_id, user):
+    item = owned_item(db, item_id, user, allow_admin=True)
     try:
         for image in list(item.images):
             remove_file(image.url)
